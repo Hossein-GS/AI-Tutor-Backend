@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" class="notranslate" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="preconnect" href="//fonts.googleapis.com" />
+    <link rel="manifest" href="/manifest.json" />
+
+
+    <title>Turn ideas into videos | AI video creator | invideo AI</title>
+    <meta name="google" content="notranslate" />
+    <meta
+      name="title"
+      content="Turn ideas into videos | AI video creator | invideo AI"
+    />
+    <meta
+      name="description"
+      content="Make videos easily by giving a prompt to invideo AI. Ideal for content creators, YouTubers and marketers, invideo AI offers a seamless way to turn your ideas into publish-ready videos with AI."
+    />
+    <meta name="theme-color" content="#0D65E0">
+
+    <meta name="robots" content="noindex, nofollow">
+
+    <meta
+      property="og:title"
+      content="Turn ideas into videos | AI video creator | invideo AI"
+    />
+    <meta
+      property="og:description"
+      content="Make videos easily by giving a prompt to invideo AI. Ideal for content creators, YouTubers and marketers, invideo AI offers a seamless way to turn your ideas into publish-ready videos with AI."
+    />
+    <meta property="og:url" content="https://ai.invideo.io" />
+    <meta
+      property="og:image"
+      content="https://web-assets.invideo.io/landing-pages/prod/homepage/videos/poster-images/Gen3Promo.jpeg"
+    />
+    <meta
+      property="og:image:secure_url"
+      content="https://web-assets.invideo.io/landing-pages/prod/homepage/videos/poster-images/Gen3Promo.jpeg"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="invideo AI" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:type" content="website" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@invideoOfficial" />
+    <meta name="twitter:creator" content="@invideoOfficial" />
+    <meta
+      name="twitter:title"
+      content="Turn ideas into videos | AI video creator | invideo AI"
+    />
+    <meta
+      name="twitter:description"
+      content="Make videos easily by giving a prompt to invideo AI. Ideal for content creators, YouTubers and marketers, invideo AI offers a seamless way to turn your ideas into publish-ready videos with AI."
+    />
+    <meta
+      name="twitter:image"
+      content="https://web-assets.invideo.io/landing-pages/prod/homepage/videos/poster-images/Gen3Promo.jpeg"
+    />
+    <meta name="twitter:image:alt" content="invideo AI" />
+
+    <style>
+      body {
+        background-color: #000;
+      }
+    </style>
+    <script type="module" crossorigin src="/ai-assets/scripts/index.BFxaEsto.js"></script>
+    <link rel="stylesheet" crossorigin href="/ai-assets/styles/index.C-qQJ9Uo.css">
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script>
+      // for external flutter uploader
+      window.addEventListener(
+        "flutterInAppWebViewPlatformReady",
+        () => {
+          window.flutterInAppWebViewPlatformReady = true;
+        },
+        { once: true }
+      );
+    </script>
+  </body>
+</html>

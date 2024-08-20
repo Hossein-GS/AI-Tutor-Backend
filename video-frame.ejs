@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Frame</title>
+  <style>
+    /* Hide unwanted elements by their class or id */
+    /* Example: hide header and footer */
+    header, footer {
+      display: none;
+    }
+
+    div{
+        display: none;
+    }
+
+    /* Style the container that will show the video */
+    #video-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+    }
+
+    #copilot-slate-container {
+        display: block !important;
+    }
+
+    /* Ensure the video iframe takes up the full container */
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="video-container">
+    <iframe src="<%= videoURL %>" frameborder="0" allowfullscreen></iframe>
+  </div>
+</body>
+</html>

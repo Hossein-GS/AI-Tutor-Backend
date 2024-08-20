@@ -1,0 +1,22 @@
+{
+    "quiz_title": "Electronic Components Quiz",
+    "questions": [
+      {
+        "question": "What is the function of a resistor in an electronic circuit?",
+        "type": "MCQ",
+        "options": ["Amplification", "Voltage regulation", "Current control", "Signal coupling"],
+        "answer": "Current control"
+      },
+      {
+        "question": "Which electronic component stores and releases electrical energy?",
+        "type": "MCQ",
+        "options": ["Transistor", "Capacitor", "Diode", "Integrated circuit"],
+        "answer": "Capacitor"
+      },
+      {
+        "question": "What is the symbol for a resistor in an electronic circuit diagram?",
+        "type": "Short answer",
+        "answer": "R"
+      }
+    ]
+  }
