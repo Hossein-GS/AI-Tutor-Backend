@@ -8,7 +8,7 @@ const openai = new OpenAI();
 import cors from 'cors';
 
 
-import express from 'express';
+import express, { text } from 'express';
 const app = express();
 
 import axios from 'axios';
@@ -18,6 +18,11 @@ import { fileURLToPath } from 'url';
 import bodyParser from 'body-parser';
 import open from 'open';
 import ejs from 'ejs';
+import * as cheerio from 'cheerio';
+import * as puppeteer from 'puppeteer';
+
+const YOUTUBE_API_KEY = 'AIzaSyB5yHTtszhb7R_o3QGFGtFi_im44JC9qT4';
+const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
 
 // Enable CORS for all routes
 app.use(cors({
@@ -107,6 +112,7 @@ async function generateScript(topic) {
 // Function to generate video using the plugin API
 async function createVideo(textPrompt, topic) {
   try {
+    // Generate video using the API
     const response = await axios.post('https://video-ai.invideo.io/api/copilot/request/chatgpt-new-from-script', {
       script: textPrompt,
       settings: 'male voiceover, professional tone of speaking, 3 minutes long, follow the script',
@@ -117,32 +123,16 @@ async function createVideo(textPrompt, topic) {
       length_in_minutes: 3
     });
 
-    const videoUrl = response.data.video_url;
+    let videoUrl = response.data.video_url;
+    console.log('Video URL:', videoUrl);
 
-    // Ensure the videos directory exists
-    const videoDir = path.join(__dirname, 'videos');
-    if (!fs.existsSync(videoDir)) {
-      fs.mkdirSync(videoDir);
-    }
+    //open(videoUrl);
+    //await new Promise(resolve => setTimeout(resolve, 20000)); // Wait for 5 seconds before returning the video URL
 
-    const videoFileName = `${topic}_educational_video.mp4`; // Example filename
-    const downloadPath = path.join(videoDir, videoFileName);
+    
 
-    const writer = fs.createWriteStream(downloadPath);
-    const responseStream = await axios({
-      url: videoUrl,
-      method: 'GET',
-      responseType: 'stream'
-    });
+    return videoUrl;
 
-    responseStream.data.pipe(writer);
-
-    return response.data.video_url;
-
-    //return new Promise((resolve, reject) => {
-    //  writer.on('finish', () => resolve(downloadPath));
-    //  writer.on('error', reject);
-    //});
   } catch (error) {
     console.error('Error creating video:', error.message);
     throw error; // Rethrow the error for handling in higher levels
@@ -298,6 +288,99 @@ app.post('/check-quiz', async (req, res) => {
     res.status(500).send('Error checking quiz: ' + error.message);
   }
 });
+
+app.post('/search-video', async (req, res) => {
+  const searchQuery = req.body.query;
+
+  try {
+    const response = await axios.get(YOUTUBE_API_URL, {
+      params: {
+        part: 'snippet',
+        q: searchQuery,
+        type: 'video',
+        maxResults: 5,
+        key: YOUTUBE_API_KEY
+      }
+    });
+
+    const videoResults = response.data.items.map(item => ({
+      title: item.snippet.title,
+      videoId: item.id.videoId,
+      description: item.snippet.description
+    }));
+
+    res.json({ videos: videoResults });
+  } catch (error) {
+    res.status(500).send('Error searching YouTube: ' + error.message);
+  }
+});
+
+app.post('/conversation', async (req, res) => {
+  const conversation = req.body.conversation; // Expecting an array of message objects
+  const question = req.body.question; // A string representing the latest user question
+  
+  try {
+    // Transform the conversation array to match the format required by OpenAI
+    const formattedConversation = conversation.map(msg => ({
+      role: msg.sender === 'ai' ? 'assistant' : 'user',
+      content: msg.text === undefined ? 'video url' : msg.text
+    }));
+
+    // Add the latest user question to the conversation
+    formattedConversation.push({ role: 'user', content: question });
+
+    console.log('Formatted Conversation:', formattedConversation);
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: 'You are a helpful teacher that answers questions. If the student asks for a video, just reply with 1 (ONLY THE NUMBER 1 NOTHING EXTRA). If the students asks you to generate a video, just reply with 2 (ONLY THE NUMBER 2 NOTHING EXTRA).'  },
+        ...formattedConversation // Spread the formatted conversation into the messages array
+      ]
+    });
+
+    const result = response.choices[0].message.content;
+
+    if (result === '1') {
+      // Fetch video from YouTube API
+      const youtubeResponse = await axios.get(YOUTUBE_API_URL, {
+        params: {
+          part: 'snippet',
+          q: question,
+          type: 'video',
+          maxResults: 1,
+          key: YOUTUBE_API_KEY
+        }
+      });
+
+      const videoURL = `//www.youtube.com/watch?v=${youtubeResponse.data.items[0].id.videoId}`;
+      console.log('Video URL:', videoURL);
+
+      // Send response with video URL
+      return res.json({ result, status: 1, videoURL });
+    } else if (result === '2') {
+      // Generate video using OpenAI
+      const script = await generateScript(question);
+      const videoURL = await createVideo(script, question);
+      console.log('Video URL:', videoURL);
+
+      // Send response with video URL
+      return res.json({ result, status: 2, videoURL });
+    }
+
+    // Send response for non-video requests
+    console.log('Response:', result);
+    console.log('Status:', 0);
+    return res.json({ result, status: 0 });
+
+  } catch (error) {
+    console.error('Error:', error);
+    return res.status(500).send('Error generating response: ' + error.message);
+  }
+});
+
+
+
 
 // personalization of the video
 async function personalizeVideo(topic, result, quiz) {
