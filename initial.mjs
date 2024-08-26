@@ -24,6 +24,42 @@ import * as puppeteer from 'puppeteer';
 const YOUTUBE_API_KEY = 'AIzaSyB5yHTtszhb7R_o3QGFGtFi_im44JC9qT4';
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
 
+let quizSample = `
+  {
+  "quiz": {
+    "questions": [
+      {
+        "question": "What is the capital of France?",
+        "type": "MCQ",
+        "options": ["London", "Paris", "Berlin", "Madrid"],
+        "answer": "Paris"
+      },
+      {
+        "question": "Who wrote the play 'Romeo and Juliet'?",
+        "type": "Short Answer",
+        "answer": "William Shakespeare"
+      },
+      {
+        "question": "What is the chemical symbol for gold?",
+        "type": "MCQ",
+        "options": ["Au", "Ag", "Pb", "Fe"],
+        "answer": "Au"
+      },
+      {
+        "type": "Short Answer",
+        "answer": "7"
+      },
+      {
+        "question": "Which planet is known as the Red Planet?",
+        "type": "MCQ",
+        "options": ["Venus", "Mars", "Jupiter", "Saturn"],
+        "answer": "Mars"
+      }
+    ]
+  }
+}
+`;
+
 // Enable CORS for all routes
 app.use(cors({
 	origin: '*'
@@ -150,6 +186,7 @@ async function generateAssesment(topic, script) {
   });
 
   const quiz = completion.choices[0].message.content;
+  //console.log('Quiz:', quiz);
   return quiz;
 }
 
@@ -189,7 +226,7 @@ async function getTopicFromPicture(image) {
 
 async function getTopicFromAudio(audio) {
   const transcription = await openai.audio.transcriptions.create({
-    file: fs.createReadStream("AUDIO.m4a"),
+    file: fs.createReadStream("audio.m4a"),
     model: "whisper-1",
   });
 
@@ -334,7 +371,7 @@ app.post('/conversation', async (req, res) => {
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
-        { role: 'system', content: 'You are a helpful teacher that answers questions. If the student asks for a video, just reply with 1 (ONLY THE NUMBER 1 NOTHING EXTRA). If the students asks you to generate a video, just reply with 2 (ONLY THE NUMBER 2 NOTHING EXTRA).'  },
+        { role: 'system', content: 'You are a helpful teacher that answers questions. If the student asks for a video, just reply with 1 (ONLY THE NUMBER 1 NOTHING EXTRA). If the students asks you to generate a video, just reply with 2 (ONLY THE NUMBER 2 NOTHING EXTRA). If the user is ready for an assessment or asks for it just reply with 3 (ONLY THE NUMBER 3 NOTHING EXTRA)'},
         ...formattedConversation // Spread the formatted conversation into the messages array
       ]
     });
@@ -366,6 +403,26 @@ app.post('/conversation', async (req, res) => {
 
       // Send response with video URL
       return res.json({ result, status: 2, videoURL });
+    } else if (result === '3') {
+      // Generate quiz using OpenAI
+      //const quiz = await generateAssesment(question);
+      //console.log('Quiz:', quiz);
+
+      const quizGen = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant that generates quizzes for educational videos' },
+          ...formattedConversation, // Spread the formatted conversation into the messages array
+          { role: 'user', content: 'Can you generate a quiz in JSON format about ' + question + '? The quiz should have 5 MCQ questions. The format should be questions, type, options if it is MCQ, and answer. also make sure that the response is according to the previous message topic or video that the student asks. dont say sure, here it is or whatever just send the JSON formatted quiz. you can follow the following format' + quizSample }
+        ]
+      });
+
+      const quiz = quizGen.choices[0].message.content;
+
+      const formattedQuiz = JSON.parse(quiz);
+
+      // Send response with quiz
+      return res.json({ result, status: 3, formattedQuiz });
     }
 
     // Send response for non-video requests
