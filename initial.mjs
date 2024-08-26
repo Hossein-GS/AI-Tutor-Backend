@@ -14,6 +14,7 @@ const app = express();
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import multer from 'multer';
 import { fileURLToPath } from 'url';
 import bodyParser from 'body-parser';
 import open from 'open';
@@ -23,6 +24,17 @@ import * as puppeteer from 'puppeteer';
 
 const YOUTUBE_API_KEY = 'AIzaSyB5yHTtszhb7R_o3QGFGtFi_im44JC9qT4';
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.fieldname + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage: storage });
 
 let quizSample = `
   {
@@ -191,7 +203,7 @@ async function generateAssesment(topic, script) {
 }
 
 //const image = fs.createReadStream("picture.jpg"); 
-const image_path = "picture.jpg";
+const image_path = "uploads/picture.jpg";
 
 function encodeImage(image_path) {
   const image = fs.readFileSync(image_path);
@@ -235,6 +247,46 @@ async function getTopicFromAudio(audio) {
   return topic;
 }
 //audio = fs.createReadStream("FILE_LOCATION/name_of_the_file.file_type");
+
+const speechFile = path.resolve("./speech.mp3");
+
+app.post('/upload_picture', upload.single('picture'), async (req, res) => {
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "What is this in the image, explain it to the student and ask what they want to know about it." },
+          {
+            type: "image_url",
+            image_url: {
+              "url": "data:image/jpeg;base64," + image,
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  console.log(response.choices[0].message.content);
+  const answer = response.choices[0].message.content;
+  const mp3 = await openai.audio.speech.create({
+    model: "tts-1",
+    voice: "shimmer",
+    input: answer,
+  });
+  console.log(speechFile);
+  const buffer = Buffer.from(await mp3.arrayBuffer());
+  await fs.promises.writeFile(speechFile, buffer);
+
+  res.send(speechFile);
+});
+
+app.post('/upload_audio', upload.single('audio'), async (req, res) => {
+  res.send('audio uploaded successfully');
+});
 
 
 
