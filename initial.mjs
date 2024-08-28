@@ -25,6 +25,7 @@ import * as puppeteer from 'puppeteer';
 const YOUTUBE_API_KEY = 'AIzaSyB5yHTtszhb7R_o3QGFGtFi_im44JC9qT4';
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
 
+/*
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/');
@@ -34,7 +35,43 @@ const storage = multer.diskStorage({
   }
 });
 
+const upload = multer({ storage: storage });*/
+
+
+// Set storage engine
+const storage = multer.diskStorage({
+  destination: 'uploads/', // Specify the folder to save the images
+  filename: function(req, file, cb) {
+    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+  }
+});
+/*
+// Initialize upload
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 1000000 }, // 1MB limit
+  fileFilter: function(req, file, cb) {
+    checkFileType(file, cb);
+  }
+}).single('image');
+*/
 const upload = multer({ storage: storage });
+// Check file type
+function checkFileType(file, cb) {
+  // Allowed ext
+  const filetypes = /jpeg|jpg|png|gif/;
+  // Check ext
+  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+  // Check mime
+  const mimetype = filetypes.test(file.mimetype);
+
+  if (mimetype && extname) {
+    return cb(null, true);
+  } else {
+    cb('Error: Images Only!');
+  }
+}
+  
 
 let quizSample = `
   {
@@ -85,6 +122,55 @@ app.use(express.static('public'));
 
 // Parse JSON bodies (as sent by API clients)
 app.use(express.json());
+
+app.post('/upload-audio', upload.single('audio'), (req, res) => {
+  console.log('Audio file received:', req.file);
+  res.json({ message: 'Audio uploaded successfully!', file: req.file });
+});
+
+function encodeImage2(image_path2) {
+  const image = fs.readFileSync(image_path2);
+  const encodedImage = Buffer.from(image).toString('base64');
+  return encodedImage;
+}
+
+// Upload route
+app.post('/upload-image', upload.single('image'), async (req, res) => {
+    console.log('Image file received:', req.file);
+
+    const image_path2 = `uploads/${req.file.filename}`;
+    const image2 = encodeImage2(image_path2);
+
+    try {
+      const answer = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {type: "text", text: "Identify theimage and talk about it to the student. Keep it short."},
+              {
+                type: "image_url",
+                image_url: {
+                  "url": "data:image/png;base64," + image2,
+                },
+              },
+            ]
+          }
+        ]
+      });
+      const AIresponse = answer.choices[0].message.content;
+      console.log('Response:', answer.choices[0].message.content);
+      res.json({ AIresponse });
+    } catch (error) {
+      console.error('Error processing image:', error.message);
+      res.status(500).send('Error processing image');
+    }
+
+  });
+
+// Serve static files
+app.use('/uploads', express.static('uploads'));
 
 // Get the directory name of the current module file
 const __filename = fileURLToPath(import.meta.url);
@@ -204,6 +290,7 @@ async function generateAssesment(topic, script) {
 
 //const image = fs.createReadStream("picture.jpg"); 
 const image_path = "uploads/picture.jpg";
+const audio_path = "uploads/audio.wav";
 
 function encodeImage(image_path) {
   const image = fs.readFileSync(image_path);
@@ -220,7 +307,8 @@ async function getTopicFromPicture(image) {
       {
         role: "user",
         content: [
-          { type: "text", text: "What is the key word in this image? (just give a short response you can use multiple words if nessecary)" },
+          //{ type: "text", text: "What is the key word in this image? (just give a short response you can use multiple words if nessecary)" },
+          {type: "text", text: "Identify theimage and talk about it to the student. Keep it short."},
           {
             type: "image_url",
             image_url: {
@@ -248,44 +336,131 @@ async function getTopicFromAudio(audio) {
 }
 //audio = fs.createReadStream("FILE_LOCATION/name_of_the_file.file_type");
 
-const speechFile = path.resolve("./speech.mp3");
+const speechFile = path.resolve("./speech.wav");
 
+// Initialize a memory array for conversation
+let conversationMemory = [];
+
+// Endpoint to handle image upload and processing
 app.post('/upload_picture', upload.single('picture'), async (req, res) => {
+  const image = req.file;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: "What is this in the image, explain it to the student and ask what they want to know about it." },
-          {
-            type: "image_url",
-            image_url: {
-              "url": "data:image/jpeg;base64," + image,
+  try {
+    // Encode the uploaded image
+    const encodedImage = encodeImage(image.path);
+
+    // Add the user's image description request to the conversation memory
+    conversationMemory.push({
+      role: "user",
+      content: "What is this in the image? Explain it to the student."
+    });
+
+    // Generate a response based on the image
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        ...conversationMemory,
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "What is this in the image, explain it to the student and ask what they want to know about it. keep the explanation short if you don't see anything important just say nothing important is seen here" },
+            {
+              type: "image_url",
+              image_url: {
+                "url": "data:image/jpeg;base64," + encodedImage,
+              },
             },
-          },
-        ],
-      },
-    ],
-  });
+          ],
+        },
+      ],
+    });
 
-  console.log(response.choices[0].message.content);
-  const answer = response.choices[0].message.content;
-  const mp3 = await openai.audio.speech.create({
-    model: "tts-1",
-    voice: "shimmer",
-    input: answer,
-  });
-  console.log(speechFile);
-  const buffer = Buffer.from(await mp3.arrayBuffer());
-  await fs.promises.writeFile(speechFile, buffer);
+    const answer = response.choices[0].message.content;
 
-  res.send(speechFile);
+    // Add the AI's response to the conversation memory
+    conversationMemory.push({
+      role: "assistant",
+      content: answer
+    });
+
+    // Generate speech from the AI response
+    const mp3 = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: "alloy",
+      input: answer,
+      response_format: "wav",
+    });
+
+    const buffer = Buffer.from(await mp3.arrayBuffer());
+    await fs.promises.writeFile(speechFile, buffer);
+
+    res.sendFile(speechFile);
+
+  } catch (error) {
+    console.error('Error processing image:', error.message);
+    res.status(500).send('Error processing image');
+  }
 });
 
+// Endpoint to handle audio upload and processing
 app.post('/upload_audio', upload.single('audio'), async (req, res) => {
-  res.send('audio uploaded successfully');
+  const audio = req.file;
+
+  try {
+    // Transcribe the audio file
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(audio.path),
+      model: "whisper-1",
+    });
+
+    // Add the user's audio content to the conversation memory
+    conversationMemory.push({
+      role: "user",
+      content: transcription.text,
+    });
+
+    // Generate a response based on the transcription
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        ...conversationMemory,
+        {
+          role: "system",
+          content: "You are a helpful teacher that talks to students and teaches them about what they ask for. You can also ask them questions to make sure they understand the topic. Keep it short.",
+        },
+        {
+          role: "user",
+          content: transcription.text,
+        }
+      ],
+    });
+
+    const answer = response.choices[0].message.content;
+
+    // Add the AI's response to the conversation memory
+    conversationMemory.push({
+      role: "assistant",
+      content: answer,
+    });
+
+    console.log('Conversation:', conversationMemory);
+    // Generate speech from the AI response
+    const wav = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: "alloy",
+      input: answer,
+      response_format: "wav",
+    });
+
+    const buffer = Buffer.from(await wav.arrayBuffer());
+    await fs.promises.writeFile(speechFile, buffer);
+
+    res.sendFile(speechFile);
+
+  } catch (error) {
+    console.error('Error processing audio:', error.message);
+    res.status(500).send('Error processing audio');
+  }
 });
 
 
@@ -306,12 +481,13 @@ app.post('/generate-text', async (req, res) => {
 app.post('/send-image', async (req, res) => {
   const image = req.body.image;
   try {
-    const topic = await getTopicFromPicture(image);
-    const script = await generateScript(topic);
-    const videoURL = await createVideo(script, topic);
-    const quiz = await generateAssesment(topic, script);
+    const answer = await getTopicFromPicture(image);
+    //const script = await generateScript(topic);
+    //const videoURL = await createVideo(script, topic);
+    //const quiz = await generateAssesment(topic, script);
     //res.render('video-frame', { videoURL, topic, script, quiz });
-    res.json({ topic, videoURL, quiz });
+    //res.json({ topic, videoURL, quiz });
+    res.json({ answer });
   } catch (error) {
     //res.status(500).send('Error generating video: ' + error.message);
     res.json({ error: error.message });
@@ -470,6 +646,8 @@ app.post('/conversation', async (req, res) => {
       });
 
       const quiz = quizGen.choices[0].message.content;
+
+      console.log('Quiz:', quiz);
 
       const formattedQuiz = JSON.parse(quiz);
 
